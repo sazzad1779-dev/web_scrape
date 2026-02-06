@@ -172,10 +172,10 @@ for category in categories:
                 content = panel.text.strip()
 
                 if title:
-                    print(f"\n     🔽 DROPDOWN: {title}")
+                    print(f"\n DROPDOWN: {title}")
                 if content:
                     print(f"         ▪ {content}")
 
             except:
-                print("     ⚠ Failed to read a dropdown")
+                print(" Failed to read a dropdown")
                 continue

@@ -195,4 +195,4 @@ driver.quit()
 # ---- CREATE DATAFRAME ----
 df = pd.DataFrame(all_data)
 df.to_csv("pep_pedia_batch.csv", index=False)
-print("✅ Batch scraping complete, saved to pep_pedia_batch.csv")
+print("Batch scraping complete, saved to pep_pedia_batch.csv")

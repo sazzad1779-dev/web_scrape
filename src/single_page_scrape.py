@@ -126,7 +126,7 @@ for cat in categories:
         "sections": get_sections(),
         "url": driver.current_url
     }
-print("\n\n✅ SCRAPING COMPLETE")
+print("\n\nSCRAPING COMPLETE")
 driver.quit()
 
 all_data = append_to_csv(results)
