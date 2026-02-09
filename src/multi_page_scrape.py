@@ -14,8 +14,8 @@ from src.crawl_url import crawl_peptide_urls
 # -------------------- CONFIG -------------------- #
 URLS = crawl_peptide_urls()
 # URLS = ["https://pep-pedia.org/peptides/adalank"]  # limit for testing, remove or adjust as needed
-TIMEOUT = 8
-OUTPUT_DIR = Path("output")
+TIMEOUT = 5
+OUTPUT_DIR = Path("output_1")
 OUTPUT_DIR.mkdir(exist_ok=True)
 MASTER_CSV = OUTPUT_DIR / "pep_pedia_master.csv"
 ERROR_LOG = OUTPUT_DIR / "error_log.txt"
@@ -112,6 +112,7 @@ def get_sections(driver, wait):
 def scrape_url(url):
     driver, wait = create_driver()
     start_time = time.time()
+    expanded=True # set to False to only take visible text, True to also capture dropdown content in separate columns
     try:
         print(f"[INFO] Processing: {url}")
         driver.get(url)
@@ -150,49 +151,49 @@ def scrape_url(url):
             for k, v in content.get("quick_guide", {}).items():
                 col_name = k.replace(" ", "_").lower()
                 row[f"{col_name}"] = v
+            if expanded:
+                for section in content.get("sections", []):
+                    h2_title = None
+                    section_texts = []
 
-            # for section in content.get("sections", []):
-            #     h2_title = None
-            #     section_texts = []
+                    for item in section:
+                        if item.get("type") == "h2":
+                            if h2_title and section_texts:
+                                row[h2_title] = "\n".join(section_texts)
+                            h2_title = item["text"].replace(" ", "_").lower()
+                            section_texts = []
+                        elif item.get("type") in ["p", "li"]:
+                            section_texts.append(item["text"])
+                        elif "dropdown" in item:
+                            acc_title = item["dropdown"].replace(" ", "_").lower()
+                            row[f"{h2_title}_{acc_title}" if h2_title else acc_title] = item["content"]
 
-            #     for item in section:
-            #         if item.get("type") == "h2":
-            #             if h2_title and section_texts:
-            #                 row[h2_title] = "\n".join(section_texts)
-            #             h2_title = item["text"].replace(" ", "_").lower()
-            #             section_texts = []
-            #         elif item.get("type") in ["p", "li"]:
-            #             section_texts.append(item["text"])
-            #         elif "dropdown" in item:
-            #             acc_title = item["dropdown"].replace(" ", "_").lower()
-            #             row[f"{h2_title}_{acc_title}" if h2_title else acc_title] = item["content"]
+                    if h2_title and section_texts:
+                        row[h2_title] = "\n".join(section_texts)
+            else:
+                for section in content.get("sections", []):
+                    h2_title = None
+                    section_texts = []
 
-            #     if h2_title and section_texts:
-            #         row[h2_title] = "\n".join(section_texts)
+                    for item in section:
+                        # h2 → column name
+                        if item.get("type") == "h2":
+                            # Save previous h2 content if exists
+                            if h2_title:
+                                row[h2_title] = "\n".join(section_texts)
+                            h2_title = item["text"].replace(" ", "_").lower()
+                            section_texts = []
+                        else:
+                            # Take text if exists, otherwise content (for dropdowns)
+                            text = item.get("text", "")
+                            content_val = item.get("content", "")
+                            combined = "\n".join([t for t in [text, content_val] if t.strip()])
+                            if combined:
+                                section_texts.append(combined)
 
-            for section in content.get("sections", []):
-                h2_title = None
-                section_texts = []
-
-                for item in section:
-                    # h2 → column name
-                    if item.get("type") == "h2":
-                        # Save previous h2 content if exists
-                        if h2_title:
-                            row[h2_title] = "\n".join(section_texts)
-                        h2_title = item["text"].replace(" ", "_").lower()
-                        section_texts = []
-                    else:
-                        # Take text if exists, otherwise content (for dropdowns)
-                        text = item.get("text", "")
-                        content_val = item.get("content", "")
-                        combined = "\n".join([t for t in [text, content_val] if t.strip()])
-                        if combined:
-                            section_texts.append(combined)
-
-                # Save last h2 section
-                if h2_title:
-                    row[h2_title] = "\n".join(section_texts)
+                    # Save last h2 section
+                    if h2_title:
+                        row[h2_title] = "\n".join(section_texts)
 
             row["scrape_time_seconds"] = round(time.time() - start_time, 2)  # track time
             print(f"[INFO] Finished {url} in {row['scrape_time_seconds']} seconds")

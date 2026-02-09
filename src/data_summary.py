@@ -2,9 +2,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+output_dir = Path("output_1")
 # ---------------- CONFIG ---------------- #
-DATA_PATH = Path("output/pep_pedia_master.csv")
-REPORT_PATH = Path("output/summary_report.csv")
+DATA_PATH = output_dir / "pep_pedia_master.csv"
+REPORT_PATH = output_dir / "summary_report.csv"
 
 # ---------------- LOAD DATA ---------------- #
 df = pd.read_csv(DATA_PATH)
