@@ -1,35 +1,10 @@
 # -------------------- IMPORTS -------------------- #
 import time
-import pandas as pd
-from multiprocessing import Pool, cpu_count
-from pathlib import Path
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-from src.crawl_url import crawl_peptide_urls
-
-# -------------------- CONFIG -------------------- #
-URLS = crawl_peptide_urls()
-# URLS = ["https://pep-pedia.org/peptides/adalank"]  # limit for testing, remove or adjust as needed
-TIMEOUT = 5
-OUTPUT_DIR = Path("output_1")
-OUTPUT_DIR.mkdir(exist_ok=True)
-MASTER_CSV = OUTPUT_DIR / "pep_pedia_master.csv"
-ERROR_LOG = OUTPUT_DIR / "error_log.txt"
-
-# -------------------- DRIVER SETUP -------------------- #
-def create_driver():
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    driver = webdriver.Chrome(options=options)
-    wait = WebDriverWait(driver, TIMEOUT)
-    return driver, wait
+from src.csv_save import append_to_csv
+from src.config import URLS, TIMEOUT, MASTER_CSV, ERROR_LOG, OUTPUT_DIR, create_driver
 
 # -------------------- UTILITIES -------------------- #
 def safe_click(driver, wait, element):
@@ -74,6 +49,51 @@ def get_quick_guide(driver, wait):
     except TimeoutException:
         return {}
 
+def get_community_insights(driver, wait):
+    try:
+        card = wait.until(EC.presence_of_element_located(
+            (By.XPATH, "//h3[contains(text(),'Community Insights')]/ancestor::div[contains(@class,'rounded-xl')]")
+        ))
+        heading = card.find_element(By.TAG_NAME, "h3").text.strip()
+        # Get the responses count
+        responses_text = card.find_element(By.XPATH, ".//p[contains(text(),'responses')]").text
+        responses = responses_text.split() or "0 responses"
+
+        # Get the insight rows
+        rows = card.find_elements(By.CSS_SELECTOR, "div.flex.gap-3.items-start")
+        insights = {heading: responses}
+        insights.update({
+            r.find_element(By.CSS_SELECTOR, ".text-label-sm").text.strip():
+            r.find_element(By.CSS_SELECTOR, ".text-body-sm").text.strip()
+            for r in rows
+        })
+
+        return insights
+    except TimeoutException:
+        return {}
+    
+def get_poll_results(driver, wait):
+    try:
+        card = wait.until(EC.presence_of_element_located(
+            (By.XPATH, "//h3[contains(text(),'Poll Results')]/ancestor::div[contains(@class,'rounded-xl')]")
+        ))
+        heading = card.find_element(By.TAG_NAME, "h3").text.strip()
+        # Get the responses count
+        responses_text = card.find_element(By.XPATH, ".//p[contains(text(),'responses')]").text
+        responses = responses_text.split() or "0 responses"
+
+        # Get the insight rows
+        rows = card.find_elements(By.CSS_SELECTOR, "div.flex.gap-3.items-start")
+        poll_results = {heading: responses}
+        poll_results.update({
+            r.find_element(By.CSS_SELECTOR, ".text-label-sm").text.strip():
+            r.find_element(By.CSS_SELECTOR, ".text-body-sm").text.strip()
+            for r in rows
+        })
+
+        return poll_results
+    except TimeoutException:
+        return {}
 def get_sections(driver, wait):
     data = []
     try:
@@ -108,7 +128,6 @@ def get_sections(driver, wait):
         pass
     return data
 
-# -------------------- SCRAPE SINGLE URL -------------------- #
 def scrape_url(url):
     driver, wait = create_driver()
     start_time = time.time()
@@ -127,116 +146,22 @@ def scrape_url(url):
                 if b.text.strip() == cat:
                     safe_click(driver, wait, b)
                     break
-            time.sleep(1)
-            wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.peptide-hero-gradient")))
+            # time.sleep(1)
+            # wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.peptide-hero-gradient")))
 
             results[cat] = {
                 "hero": get_hero_data(driver, wait),
                 "quick_guide": get_quick_guide(driver, wait),
+                "community_insights": get_community_insights(driver, wait),
+                "poll_results": get_poll_results(driver, wait),
                 "sections": get_sections(driver, wait),
                 "url": driver.current_url
             }
-
-        # Convert results to rows
-        rows = []
-        for cat, content in results.items():
-            hero = content.get("hero", {})
-            row = {"Peptide_Name": hero.get("name", ""),
-                   "Full_Name": hero.get("subtitle", ""),
-                   "Method": cat}
-            for fact in hero.get("facts", []):
-                col_name = fact["label"].replace(" ", "_").lower()
-                row[f"{col_name}"] = fact["value"]
-
-            for k, v in content.get("quick_guide", {}).items():
-                col_name = k.replace(" ", "_").lower()
-                row[f"{col_name}"] = v
-            if expanded:
-                for section in content.get("sections", []):
-                    h2_title = None
-                    section_texts = []
-
-                    for item in section:
-                        if item.get("type") == "h2":
-                            if h2_title and section_texts:
-                                row[h2_title] = "\n".join(section_texts)
-                            h2_title = item["text"].replace(" ", "_").lower()
-                            section_texts = []
-                        elif item.get("type") in ["p", "li"]:
-                            section_texts.append(item["text"])
-                        elif "dropdown" in item:
-                            acc_title = item["dropdown"].replace(" ", "_").lower()
-                            row[f"{h2_title}_{acc_title}" if h2_title else acc_title] = item["content"]
-
-                    if h2_title and section_texts:
-                        row[h2_title] = "\n".join(section_texts)
-            else:
-                for section in content.get("sections", []):
-                    h2_title = None
-                    section_texts = []
-
-                    for item in section:
-                        # h2 → column name
-                        if item.get("type") == "h2":
-                            # Save previous h2 content if exists
-                            if h2_title:
-                                row[h2_title] = "\n".join(section_texts)
-                            h2_title = item["text"].replace(" ", "_").lower()
-                            section_texts = []
-                        else:
-                            # Take text if exists, otherwise content (for dropdowns)
-                            text = item.get("text", "")
-                            content_val = item.get("content", "")
-                            combined = "\n".join([t for t in [text, content_val] if t.strip()])
-                            if combined:
-                                section_texts.append(combined)
-
-                    # Save last h2 section
-                    if h2_title:
-                        row[h2_title] = "\n".join(section_texts)
-
-            row["scrape_time_seconds"] = round(time.time() - start_time, 2)  # track time
-            print(f"[INFO] Finished {url} in {row['scrape_time_seconds']} seconds")
-            print(f"remaining URLs: {len(URLS) - URLS.index(url) - 1}")
-            row["URL"] = url  # original URL for reference
-            rows.append(row)
-
-        return rows, None  # success, no error
+            
+        return append_to_csv(results)  # returns rows, error (None if success)
 
     except Exception as e:
         print(f"[ERROR] {url}: {e}")
         return [], f"{url} - {e}"  # empty rows, log error
     finally:
         driver.quit()
-
-# -------------------- MULTIPROCESSING -------------------- #
-if __name__ == "__main__":
-    start_total = time.time()
-    all_rows = []
-    error_logs = []
-
-    def process_result(result):
-        rows, error = result
-        if rows:
-            all_rows.extend(rows)
-        if error:
-            error_logs.append(error)
-
-    with Pool(processes=min(cpu_count(), 8)) as pool:
-        for result in pool.imap_unordered(scrape_url, URLS):
-            process_result(result)
-    # with Pool(processes=min(cpu_count(), 4)) as pool:
-    #     results = pool.map(scrape_url, URLS)  # each URL is processed once
-
-    # Save master CSV
-    pd.DataFrame(all_rows).to_csv(MASTER_CSV, index=False)
-    print(f"[INFO] Master CSV saved at {MASTER_CSV}")
-
-    # Save error log
-    if error_logs:
-        with open(ERROR_LOG, "w") as f:
-            for line in error_logs:
-                f.write(line + "\n")
-        print(f"[INFO] Errors logged at {ERROR_LOG}")
-
-    print(f"[INFO] Total scraping time: {round(time.time() - start_total, 2)} seconds")
