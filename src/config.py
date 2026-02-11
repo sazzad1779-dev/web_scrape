@@ -5,13 +5,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 
 # -------------------- CONFIG -------------------- #
-URLS = crawl_peptide_urls()[:1] 
+URLS = crawl_peptide_urls()
 TIMEOUT = 5
-OUTPUT_DIR = Path("output_12")
+OUTPUT_DIR = Path("output")
 OUTPUT_DIR.mkdir(exist_ok=True)
 MASTER_CSV = OUTPUT_DIR / "pep_pedia_master.csv"
 ERROR_LOG = OUTPUT_DIR / "error_log.txt"
-
+button_skip_list = ["Peak: 2 hrs", "Half-life: 2 hrs", "Cleared: ~10 hrs", "Peak", "Half-life", "24h", "7d","14d","30d"]
 # -------------------- DRIVER SETUP -------------------- #
 def create_driver():
     options = Options()
