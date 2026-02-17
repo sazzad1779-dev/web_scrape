@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-output_dir = Path("output_1")
+output_dir = Path("output_v6")
 # ---------------- CONFIG ---------------- #
 DATA_PATH = output_dir / "pep_pedia_master.csv"
 REPORT_PATH = output_dir / "summary_report.csv"
@@ -16,28 +16,11 @@ print(df.head())
 # ---------------- BASIC OVERVIEW ---------------- #
 print("\n========== BASIC OVERVIEW ==========")
 print("Total rows:", len(df))
+print("Total columns:", len(df.columns))
 print("Total unique URLs:", df["URL"].nunique())
 print("Total categories:", df["Method"].nunique())
 print("\nCategory distribution:")
 print(df["Method"].value_counts())
-
-# ---------------- SCRAPING TIME ANALYSIS ---------------- #
-print("\n========== SCRAPE TIME STATS ==========")
-print(df["scrape_time_seconds"].describe())
-
-print("\nTop 10 slowest pages:")
-print(df.sort_values("scrape_time_seconds", ascending=False)[
-    ["URL", "scrape_time_seconds"]
-].head(10))
-
-# Histogram
-plt.figure()
-df["scrape_time_seconds"].plot(kind="hist", bins=20)
-plt.title("Distribution of Scraping Time per URL")
-plt.xlabel("Seconds")
-plt.ylabel("Frequency")
-plt.tight_layout()
-plt.show()
 
 # ---------------- HERO DATA SUMMARY ---------------- #
 print("\n========== HERO DATA SUMMARY ==========")
@@ -84,8 +67,8 @@ summary = pd.DataFrame({
     "Total URLs": [df["URL"].nunique()],
     "Total Rows": [len(df)],
     "Total Categories": [df["Method"].nunique()],
-    "Average Scrape Time": [df["scrape_time_seconds"].mean()],
-    "Max Scrape Time": [df["scrape_time_seconds"].max()],
+    # "Average Scrape Time": [df["scrape_time_seconds"].mean()],
+    # "Max Scrape Time": [df["scrape_time_seconds"].max()],
     "Average Text Length": [df["total_text_length"].mean()]
 })
 

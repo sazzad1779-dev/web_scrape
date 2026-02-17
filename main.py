@@ -2,9 +2,9 @@
 import time
 import pandas as pd
 from multiprocessing import Pool, cpu_count
-from src.multi_page_scrape import URLS, scrape_url, MASTER_CSV, ERROR_LOG
-# from src.data_summary import df  # Assuming data_summary.py is in the same directory and outputs a DataFrame named df
-import matplotlib.pyplot as plt
+from src.multi_page_scrape import scrape_url
+from src.config import MASTER_CSV, ERROR_LOG
+from src.config import URLS
 
 # -------------------- MULTIPROCESSING -------------------- #
 
@@ -27,6 +27,9 @@ if __name__ == "__main__":
         results = pool.map(scrape_url, URLS)  # each URL is processed once
         for result in results:
             process_result(result)
+    
+    # process_result(scrape_url(URLS[0]))
+    
 
     # Save master CSV
     pd.DataFrame(all_rows).to_csv(MASTER_CSV, index=False)
