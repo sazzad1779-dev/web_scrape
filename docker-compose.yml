@@ -1,0 +1,10 @@
+services:
+  scraper:
+    build: .
+    volumes:
+      - ./output_v6:/app/output_v6
+    environment:
+      - CHROME_BIN=/usr/bin/chromium
+      - CHROMEDRIVER_BIN=/usr/bin/chromedriver
+    # Increase shm_size to prevent Chrome from crashing
+    shm_size: '2gb'

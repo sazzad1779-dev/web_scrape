@@ -1,113 +1,105 @@
+# Pep-Pedia Web Scraper
 
+A robust, modular web scraper designed to extract comprehensive peptide data from [pep-pedia.org](https://pep-pedia.org). Built with Python, Selenium, and Docker, it supports concurrent scraping and structured data export.
 
-# PepPedia Scraper
+## 🚀 Features
 
-A Python project to **scrape peptide data from PepPedia** using Selenium.
-Supports **single URL scraping** or **batch/multiprocessing scraping**.
-
----
-
-## Features
-
-* Scrape **hero information** (`name`, `subtitle`, `facts`)
-* Scrape **Quick Start Guide**
-* Scrape **sections** with multiple paragraphs and accordions
-* Supports **single URL scraping**
-* Supports **multiple URLs scraping with multiprocessing**
-* Outputs results to **CSV** ready for analysis or RAG/LLM ingestion
+- **Deep Extraction**: Captures Hero sections, Quick Guides, and multiple content sections including accordions.
+- **Concurrent Processing**: Utilizes multiprocessing to scrape multiple peptide URLs simultaneously.
+- **Modular Architecture**: Clean separation of concerns between core models, extractors, and infrastructure.
+- **Dockerized**: Ready-to-run containerized environment with all system dependencies pre-configured.
+- **Auto-Discovery**: Automatically crawls the bridge page to find all available peptide links.
+- **Robust Storage**: Exports results to a master CSV file with error logging for failed pages.
 
 ---
 
-## Requirements
+## 🛠️ Prerequisites
 
-* Python 3.10+
-* Google Chrome installed
-* ChromeDriver matching your Chrome version
-* `uv` Python package manager installed
+- **Python**: 3.12+
+- **Browser**: Google Chrome / Chromium
+- **Tools**: `uv` (modern Python package manager)
+- **Containerization**: Docker & Docker Compose (optional, for containerized runs)
 
 ---
 
-## Installation
+## 💻 Local Installation & Usage
 
-1. **Clone the repository**:
-
+### 1. Setup Environment
+Ensure you have `uv` installed. If not, install it via:
 ```bash
-git clone <repo-url>
-cd <project-folder>
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. **Install dependencies using `uv`**:
-
+### 2. Clone & Install
 ```bash
+git clone <repo-url>
+cd web_scrape
 uv sync
 ```
 
-3. **Download ChromeDriver** matching your Chrome version and add it to your PATH:
-
-* [ChromeDriver Download](https://sites.google.com/chromium.org/driver/)
-
----
-
-## File Structure
-
-```
-src/
-├── single_page_scrape.py   # Scrapes a single URL
-├── multi_scrape.py         # Scrapes multiple URLs using multiprocessing
-```
-
----
-
-## Configuration
-
-* **Single URL**: Edit `single_page_scrape.py` to set the `URL` variable:
-
-```python
-URL = "https://pep-pedia.org/peptides/adalank"
-```
-
-* **Multiple URLs**: Edit `multi_scrape.py` and update the `URLS` list:
-
-```python
-URLS = [
-    "https://pep-pedia.org/peptides/adalank",
-    "https://pep-pedia.org/peptides/5-amino-1mq",
-    # Add more URLs here
-]
-```
-
----
-
-## Running the Scraper
-
-### Single URL Scrape
-
+### 3. Run the Scraper
+Start the full scraping workflow (discovery + extraction):
 ```bash
-uv run -m src.single_page_scrape
+uv run python main.py
 ```
-
-* Scrapes the single URL specified in `single_page_scrape.py`.
-* Output CSV: `pep_pedia_single.csv`
-
-### Multiple URLs Scrape
-
-```bash
-uv run -m src.multi_page_scrape
-```
-
-* Scrapes all URLs in the `URLS` list with **multiprocessing**.
-* Output CSV: `pep_pedia_batch_multiprocess.csv`
+Data will be saved to `output_v6/pep_pedia_master.csv`.
 
 ---
 
-## Notes
+## 🐳 Docker Usage
 
-* Each Selenium process opens its **own Chrome instance**, so **multiprocessing consumes more memory**.
-* Make sure **ChromeDriver version matches your installed Chrome**.
-* The scraper handles:
+Run the scraper without worrying about local Chrome/ChromeDriver versions.
 
-  * Multiple categories per peptide
-  * Hero section
-  * Quick Start Guide
-  * Sections and accordions with multiple paragraphs (using newlines)
-* For large batches, adjust `max_workers` in `multi_scrape.py` to match your system resources.
+### Build and Run
+```bash
+docker compose build
+docker compose up
+```
+
+The `output_v6` directory is mounted as a volume, so your scraped data and error logs will persist on your host machine.
+
+---
+
+## 🏗️ Code Architecture
+
+The project follows a modular design for maintainability and scalability:
+
+- **`main.py`**: The entry point. Handles URL discovery and orchestrates the scraping process.
+- **`src/core/`**: Defines data models (`Peptide`, `HeroSection`, etc.) and interfaces.
+- **`src/extractors/`**: Specialized classes for parsing specific parts of the page (Hero, Quick Guide, Content Sections).
+- **`src/infrastructure/`**: Handles external concerns like `WebDriver` creation and `CSV` storage.
+- **`src/services/`**: High-level orchestrators (`PageScraper`, `ScraperManager`) that combine extractors and infrastructure.
+- **`src/config.py`**: Centralized configuration for timeouts, paths, and crawling logic.
+
+---
+
+## 🔄 Full Workflow
+
+1. **Discovery**: `crawl_peptide_urls()` in `config.py` visits the browse page and collects all peptide links.
+2. **Orchestration**: `ScraperManager` receives the URLs and distributes them across multiple processes.
+3. **Scraping**: `PageScraper` navigates to each URL and uses multiple `Extractors` to parse the DOM.
+4. **Storage**: `CSVStorage` converts the unstructured data into a tabular format and appends it to the master CSV.
+5. **Logging**: Any failures are captured and written to `error_log.txt` for later review.
+
+---
+
+## 🧪 Tests and Verification
+
+### Manual Verification
+You can verify the scraper logic and refactor integrity using:
+```bash
+uv run python verify_refactor.py
+```
+This script scrapes a sample page (`adalank`) and prints a summary of the extracted data to the console, testing both extraction and storage.
+
+### Unit Testing (Planned)
+Future updates will include a comprehensive test suite using `pytest` to validate individual extractors and models in isolation.
+
+---
+
+## ⚙️ Configuration
+
+Key settings can be adjusted in `src/config.py`:
+- `TIMEOUT`: Page load and element wait timeouts.
+- `OUTPUT_DIR`: Directory for CSV and logs.
+- `button_skip_list`: List of keywords to filter out irrelevant UI elements during scraping.
